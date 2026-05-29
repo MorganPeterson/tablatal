@@ -1,0 +1,8 @@
+# Build outputs
+tablatal
+*.o
+*.tbl
+
+# Tablatal temporary rewrite files
+*.tbl.tmp
+*.tmp
