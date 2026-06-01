@@ -28,7 +28,17 @@ typedef struct {
 } Span;
 
 static int push_field(TbtSchema *schema, TbtField field) {
-    TbtField *next = realloc(schema->fields, sizeof(TbtField) * (schema->count + 1));
+    size_t new_count = schema->count+1;
+    if (new_count == 0) {
+        return TBT_ERR;
+    }
+
+    size_t bytes = 0;
+    if (checked_array_size(new_count, sizeof(*schema->fields), &bytes) != TBT_OK) {
+        return TBT_ERR;
+    }
+
+    TbtField *next = realloc(schema->fields, bytes);
     if (!next) {
         return TBT_ERR;
     }

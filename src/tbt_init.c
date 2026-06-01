@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 void free_specs(FieldSpec *specs, size_t count) {
     for (size_t i = 0; i < count; i++) {
@@ -31,7 +32,7 @@ void free_specs(FieldSpec *specs, size_t count) {
 }
 
 static int parse_size(const char *src, size_t *out) {
-    if (!src || *src == '\0') {
+    if (!src || *src == '\0' || *src == '+' || *src == '-' || *src == ' ' || *src == '\t') {
         return TBT_ERR;
     }
 
@@ -39,7 +40,7 @@ static int parse_size(const char *src, size_t *out) {
     char *end = NULL;
     unsigned long value = strtoul(src, &end, 10);
 
-    if (errno != 0 || *end != '\0' || value == 0) {
+    if (errno != 0 || *end != '\0' || value == 0 || value > SIZE_MAX) {
         return TBT_ERR;
     }
 
@@ -101,6 +102,14 @@ int parse_field_spec(const char *arg, int is_final, FieldSpec *out) {
     out->width = width;
     out->unbounded = is_final ? 1 : 0;
 
+    return TBT_OK;
+}
+
+int checked_array_size(size_t count, size_t elem_size, size_t *out) {
+    if (count > SIZE_MAX / elem_size) {
+        return TBT_ERR;
+    }
+    *out = count * elem_size;
     return TBT_OK;
 }
 

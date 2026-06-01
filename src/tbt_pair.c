@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 int tbt_parse_pair(const char *arg, TbtPair *out) {
     const char *eq = strchr(arg, '=');
@@ -48,6 +49,10 @@ int tbt_parse_pair(const char *arg, TbtPair *out) {
 }
 
 int tbt_parse_pairs_from_args(int argc, char **argv, TbtPair **out_pairs, size_t *out_count) {
+    if (argc < 0) {
+        return TBT_ERR;
+    }
+
     TbtPair *pairs = calloc((size_t)argc, sizeof(TbtPair));
     if (!pairs) {
         return TBT_ERR;
@@ -95,7 +100,7 @@ int tbt_parse_row_number(const char *src, size_t *out) {
     char *end = NULL;
     unsigned long value = strtoul(src, &end, 10);
 
-    if (errno != 0 || *end != '\0' || value == 0) {
+    if (errno != 0 || *end != '\0' || value == 0 || value > SIZE_MAX) {
         return TBT_ERR;
     }
 

@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <stdint.h>
 
 int tbt_read_first_line(const char *path, char **out) {
     FILE *fp = fopen(path, "r");
@@ -121,7 +122,17 @@ int tbt_append_line(const char *path, const char *line){
 }
 
 static int push_line(TbtLines *lines, char *line) {
-    char **next = realloc(lines->items, sizeof(char *) * (lines->count + 1));
+    size_t new_count = lines->count+1;
+    if (new_count == 0) {
+        return TBT_ERR;
+    }
+
+    size_t bytes = 0;
+    if (checked_array_size(new_count, sizeof(*lines->items), &bytes) != TBT_OK) {
+        return TBT_ERR;
+    }
+
+    char **next = realloc(lines->items, bytes);
     if (!next) {
         return TBT_ERR;
     }
@@ -198,6 +209,10 @@ void tbt_free_lines(TbtLines *lines) {
 }
 
 char *tbt_strdup_range(const char *src, size_t start, size_t len) {
+    if (!src || len == SIZE_MAX) {
+        return NULL;
+    }
+
     char *out = malloc(len+1);
     if (!out) {
         return NULL;
@@ -224,10 +239,13 @@ char *tbt_trimmed_dup(const char *src, size_t len) {
 }
 
 static char *make_tmp_path(const char *path) {
-    const char *suffix = ".tmp";
-
+    const char *suffix = ".tmp.XXXXXX";
     size_t path_len = strlen(path);
     size_t suffix_len = strlen(suffix);
+
+    if (path_len > SIZE_MAX - suffix_len - 1) {
+        return NULL;
+    }
 
     char *tmp = malloc(path_len + suffix_len + 1);
     if (!tmp) {
@@ -235,9 +253,7 @@ static char *make_tmp_path(const char *path) {
     }
 
     memcpy(tmp, path, path_len);
-    memcpy(tmp + path_len, suffix, suffix_len);
-    tmp[path_len + suffix_len] = '\0';
-
+    memcpy(tmp + path_len, suffix, suffix_len + 1);
     return tmp;
 }
 
@@ -247,9 +263,18 @@ int tbt_write_all_lines_atomic(const char *path, const TbtLines *lines) {
         return TBT_ERR;
     }
 
-    FILE *fp = fopen(tmp_path, "w");
+    int fdtemp = mkstemp(tmp_path);
+    if (fdtemp < 0) {
+        perror(tmp_path);
+        free(tmp_path);
+        return TBT_ERR;
+    }
+
+    FILE *fp = fdopen(fdtemp, "w");
     if (!fp) {
         perror(tmp_path);
+        close(fdtemp);
+        remove(tmp_path);
         free(tmp_path);
         return TBT_ERR;
     }

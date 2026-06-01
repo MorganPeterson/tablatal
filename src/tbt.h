@@ -74,6 +74,7 @@ int tbt_append_line(const char *path, const char *line);
 int tbt_read_all_lines(const char *path, TbtLines *lines);
 int tbt_write_all_lines_atomic(const char *path, const TbtLines *lines);
 void tbt_free_lines(TbtLines *lines);
+int checked_array_size(size_t count, size_t elem_size, size_t *out);
 
 /* schema helpers */
 int tbt_parse_schema_line(const char *line, TbtSchema *schema);

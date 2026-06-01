@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 static const char *find_pair_value(const TbtPair *pairs, size_t pair_count, const char *field) {
     for (size_t i = 0; i < pair_count; i++) {
@@ -29,6 +30,15 @@ static const char *find_pair_value(const TbtPair *pairs, size_t pair_count, cons
     }
 
     return "";
+}
+
+static int checked_add_size(size_t a, size_t b, size_t *out) {
+    if (a > SIZE_MAX - b) {
+        return TBT_ERR;
+    }
+
+    *out = a+b;
+    return TBT_OK;
 }
 
 char *tbt_format_row(const TbtSchema *schema, const TbtPair *pairs, size_t pair_count) {
@@ -60,11 +70,20 @@ char *tbt_format_row(const TbtSchema *schema, const TbtPair *pairs, size_t pair_
                 return NULL;
             }
 
-            total += field->width;
+            if (checked_add_size(total, field->width, &total) != TBT_OK) {
+                fprintf(stderr, "error: row is too large\n");
+                return NULL;
+            }
         }
     }
 
-    char *row = malloc(total + 1);
+    size_t alloc_size = 0;
+    if (checked_add_size(total, 1, &alloc_size) != TBT_OK) {
+        fprintf(stderr, "error: row is too large\n");
+        return NULL;
+    }
+
+    char *row = malloc(alloc_size);
     if (!row) {
         return NULL;
     }
@@ -85,7 +104,14 @@ char *tbt_format_row(const TbtSchema *schema, const TbtPair *pairs, size_t pair_
         memcpy(row + pos, value, value_len);
         pos += value_len;
 
-        while (pos < field->offset + field->width) {
+        size_t field_end = 0;
+        if (checked_add_size(field->offset, field->width, &field_end) != TBT_OK) {
+            fprintf(stderr, "error: field size is too large\n");
+            free(row);
+            return NULL;
+        }
+
+        while (pos < field_end) {
             row[pos++] = ' ';
         }
     }
